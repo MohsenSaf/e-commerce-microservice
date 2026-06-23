@@ -30,12 +30,10 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "strict": true,
-    "typeRoots": [
-      "./node_modules/@types"
-    ],
     "strictPropertyInitialization": false,
     "types": [
-      "node"
+      "node",
+      "jest"
     ]
   },
   "include": [
