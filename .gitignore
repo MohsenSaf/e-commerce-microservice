@@ -1,0 +1,54 @@
+# -----------------------
+# Node.js / NestJS
+# -----------------------
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# -----------------------
+# Environment files
+# -----------------------
+.env
+.env.*.local
+
+# -----------------------
+# Prisma
+# -----------------------
+**/prisma/dev.db
+**/prisma/migrations/
+**/prisma/.env
+**/generated
+
+
+
+# -----------------------
+# Logs
+# -----------------------
+logs/
+*.log
+*.pid
+*.seed
+
+# -----------------------
+# IDE / Editor
+# -----------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# -----------------------
+# OS Files
+# -----------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------
+# Next.js / Frontend
+# -----------------------
+.next/
+out/

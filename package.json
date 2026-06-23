@@ -1,0 +1,23 @@
+{
+  "private": true,
+  "workspaces": [
+    "gateway",
+    "microservice-auth",
+    "microservice-product",
+    "microservice-inventory",
+    "microservice-cart",
+    "microservice-order",
+    "microservice-payment",
+    "microservice-shipping",
+    "microservice-notification",
+    "microservice-reviews",
+    "libs/*"
+  ],
+  "devDependencies": {
+    "typescript": "^5.1.6"
+  },
+  "nohoist": [
+    "**/prisma",
+    "**/@prisma/client"
+  ]
+}

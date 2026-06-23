@@ -1,0 +1,141 @@
+services:
+  auth-db:
+    image: postgres:16
+    container_name: auth_db
+    environment:
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: auth
+      POSTGRES_DB: auth_db
+    ports:
+      - "6001:5432"
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+    networks:
+      - e_commerce
+
+  product-db:
+    image: postgres:16
+    container_name: product_db
+    environment:
+      POSTGRES_USER: product
+      POSTGRES_PASSWORD: product
+      POSTGRES_DB: product_db
+    ports:
+      - "6002:5432"
+    volumes:
+      - product_data:/var/lib/postgresql/data
+    networks:
+      - e_commerce
+
+  inventory-db:
+    image: postgres:16
+    container_name: inventory_db
+    environment:
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: inventory
+      POSTGRES_DB: inventory_db
+    ports:
+      - "6004:5432"
+    volumes:
+      - inventory_data:/var/lib/postgresql/data
+    networks:
+      - e_commerce
+
+  cart-db:
+    image: postgres:16
+    container_name: cart_db
+    environment:
+      POSTGRES_USER: cart
+      POSTGRES_PASSWORD: cart
+      POSTGRES_DB: cart_db
+    ports:
+      - "6003:5432"
+    volumes:
+      - cart_data:/var/lib/postgresql/data
+    networks:
+      - e_commerce
+
+  order-db:
+    image: postgres:16
+    container_name: order_db
+    environment:
+      POSTGRES_USER: order
+      POSTGRES_PASSWORD: order
+      POSTGRES_DB: order_db
+    ports:
+      - "6005:5432"
+    volumes:
+      - order_data:/var/lib/postgresql/data
+    networks:
+      - e_commerce
+
+  payment-db:
+    image: postgres:16
+    container_name: payment_db
+    environment:
+      POSTGRES_USER: payment
+      POSTGRES_PASSWORD: payment
+      POSTGRES_DB: payment_db
+    ports:
+      - "6006:5432"
+    volumes:
+      - payment_data:/var/lib/postgresql/data
+    networks:
+      - e_commerce
+
+  shipping-db:
+    image: postgres:16
+    container_name: shipping_db
+    environment:
+      POSTGRES_USER: shipping
+      POSTGRES_PASSWORD: shipping
+      POSTGRES_DB: shipping_db
+    ports:
+      - "6007:5432"
+    volumes:
+      - shipping_data:/var/lib/postgresql/data
+    networks:
+      - e_commerce
+
+  notification-db:
+    image: postgres:16
+    container_name: notification_db
+    environment:
+      POSTGRES_USER: notification
+      POSTGRES_PASSWORD: notification
+      POSTGRES_DB: notification_db
+    ports:
+      - "6008:5432"
+    volumes:
+      - notification_data:/var/lib/postgresql/data
+    networks:
+      - e_commerce
+
+  reviews-db:
+    image: postgres:16
+    container_name: reviews_db
+    environment:
+      POSTGRES_USER: reviews
+      POSTGRES_PASSWORD: reviews
+      POSTGRES_DB: reviews_db
+    ports:
+      - "6009:5432"
+    volumes:
+      - reviews_data:/var/lib/postgresql/data
+    networks:
+      - e_commerce
+
+volumes:
+  auth_data:
+  product_data:
+  inventory_data:
+  cart_data:
+  order_data:
+  payment_data:
+  shipping_data:
+  notification_data:
+  reviews_data:
+
+networks:
+  e_commerce:
+    driver: bridge

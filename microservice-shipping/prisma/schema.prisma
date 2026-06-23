@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Shipment {
+  id                String         @id @default(uuid())
+  orderId           String         @unique
+  userId            String
+  status            ShipmentStatus @default(PENDING)
+  carrier           String
+  trackingNumber    String         @unique @default(cuid())
+  estimatedDelivery DateTime?
+
+  // Delivery address snapshot at time of shipment creation
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String?
+  postalCode   String
+  country      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ShipmentStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+}
