@@ -1,0 +1,12 @@
+apiVersion: v2
+name: ecommerce
+description: E-Commerce Microservices Helm Chart (10 services + 9 PostgreSQL DBs)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ecommerce
+  - microservices
+  - nestjs
+maintainers:
+  - name: MohsenSaf

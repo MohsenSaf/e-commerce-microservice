@@ -1,0 +1,140 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Global settings
+# ─────────────────────────────────────────────────────────────────────────────
+global:
+  registry: mohsensaf          # Docker Hub username / private registry prefix
+  tag: latest
+  imagePullPolicy: IfNotPresent
+
+  # Shared JWT secrets — override with --set or a sealed-secrets file
+  jwtAccessSecret: "change-me-access-secret"
+  jwtRefreshSecret: "change-me-refresh-secret"
+
+  namespace: ecommerce
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Services
+# ─────────────────────────────────────────────────────────────────────────────
+gateway:
+  replicas: 2
+  port: 3000
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+
+auth:
+  replicas: 2
+  port: 4001
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  db:
+    name: auth-db
+    user: auth
+    password: auth
+    database: auth_db
+    storage: 1Gi
+
+product:
+  replicas: 2
+  port: 4002
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  db:
+    name: product-db
+    user: product
+    password: product
+    database: product_db
+    storage: 2Gi
+
+cart:
+  replicas: 2
+  port: 4003
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  db:
+    name: cart-db
+    user: cart
+    password: cart
+    database: cart_db
+    storage: 1Gi
+
+inventory:
+  replicas: 2
+  port: 4004
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  db:
+    name: inventory-db
+    user: inventory
+    password: inventory
+    database: inventory_db
+    storage: 1Gi
+
+order:
+  replicas: 2
+  port: 4005
+  resources:
+    requests: { cpu: "150m", memory: "192Mi" }
+    limits:   { cpu: "750m", memory: "384Mi" }
+  db:
+    name: order-db
+    user: order
+    password: order
+    database: order_db
+    storage: 2Gi
+
+payment:
+  replicas: 2
+  port: 4006
+  resources:
+    requests: { cpu: "150m", memory: "192Mi" }
+    limits:   { cpu: "750m", memory: "384Mi" }
+  db:
+    name: payment-db
+    user: payment
+    password: payment
+    database: payment_db
+    storage: 1Gi
+
+shipping:
+  replicas: 2
+  port: 4007
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  db:
+    name: shipping-db
+    user: shipping
+    password: shipping
+    database: shipping_db
+    storage: 1Gi
+
+notification:
+  replicas: 2
+  port: 4008
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  db:
+    name: notification-db
+    user: notification
+    password: notification
+    database: notification_db
+    storage: 1Gi
+
+reviews:
+  replicas: 2
+  port: 4009
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  db:
+    name: reviews-db
+    user: reviews
+    password: reviews
+    database: reviews_db
+    storage: 1Gi

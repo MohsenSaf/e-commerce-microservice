@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: auth
+spec:
+  replicas: {{ .Values.auth.replicas }}
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+        {{- include "ecommerce.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: auth
+          image: {{ .Values.global.registry }}/ecommerce-auth:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 4001
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: AUTH_DATABASE_URL
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: JWT_ACCESS_SECRET
+        - name: JWT_REFRESH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ecommerce-secrets
+              key: JWT_REFRESH_SECRET
+          resources:
+            requests:
+              cpu:    {{ .Values.auth.resources.requests.cpu }}
+              memory: {{ .Values.auth.resources.requests.memory }}
+            limits:
+              cpu:    {{ .Values.auth.resources.limits.cpu }}
+              memory: {{ .Values.auth.resources.limits.memory }}
+          livenessProbe:
+            tcpSocket:
+              port: 4001
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: 4001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microservice-auth
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: auth
+  ports:
+    - port: 4001
+      targetPort: 4001
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.auth.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: auth-db
+spec:
+  serviceName: {{ .Values.auth.db.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.auth.db.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.auth.db.name }}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.auth.db.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.auth.db.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.auth.db.database | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.auth.db.user | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.auth.db.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.auth.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.auth.db.name }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None   # headless — StatefulSet DNS resolution

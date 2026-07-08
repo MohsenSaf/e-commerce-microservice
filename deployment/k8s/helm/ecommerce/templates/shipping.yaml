@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shipping
+spec:
+  replicas: {{ .Values.shipping.replicas }}
+  selector:
+    matchLabels:
+      app: shipping
+  template:
+    metadata:
+      labels:
+        app: shipping
+        {{- include "ecommerce.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: shipping
+          image: {{ .Values.global.registry }}/ecommerce-shipping:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 4007
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: SHIPPING_DATABASE_URL
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: JWT_ACCESS_SECRET
+          resources:
+            requests:
+              cpu:    {{ .Values.shipping.resources.requests.cpu }}
+              memory: {{ .Values.shipping.resources.requests.memory }}
+            limits:
+              cpu:    {{ .Values.shipping.resources.limits.cpu }}
+              memory: {{ .Values.shipping.resources.limits.memory }}
+          livenessProbe:
+            tcpSocket:
+              port: 4007
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: 4007
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microservice-shipping
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: shipping
+  ports:
+    - port: 4007
+      targetPort: 4007
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.shipping.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shipping-db
+spec:
+  serviceName: {{ .Values.shipping.db.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.shipping.db.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.shipping.db.name }}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.shipping.db.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.shipping.db.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.shipping.db.database | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.shipping.db.user | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.shipping.db.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.shipping.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.shipping.db.name }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None   # headless — StatefulSet DNS resolution

@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: notification
+spec:
+  replicas: {{ .Values.notification.replicas }}
+  selector:
+    matchLabels:
+      app: notification
+  template:
+    metadata:
+      labels:
+        app: notification
+        {{- include "ecommerce.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: notification
+          image: {{ .Values.global.registry }}/ecommerce-notification:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 4008
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: NOTIFICATION_DATABASE_URL
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: JWT_ACCESS_SECRET
+          resources:
+            requests:
+              cpu:    {{ .Values.notification.resources.requests.cpu }}
+              memory: {{ .Values.notification.resources.requests.memory }}
+            limits:
+              cpu:    {{ .Values.notification.resources.limits.cpu }}
+              memory: {{ .Values.notification.resources.limits.memory }}
+          livenessProbe:
+            tcpSocket:
+              port: 4008
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: 4008
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microservice-notification
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: notification
+  ports:
+    - port: 4008
+      targetPort: 4008
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.notification.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: notification-db
+spec:
+  serviceName: {{ .Values.notification.db.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.notification.db.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.notification.db.name }}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.notification.db.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.notification.db.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.notification.db.database | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.notification.db.user | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.notification.db.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.notification.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.notification.db.name }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None   # headless — StatefulSet DNS resolution

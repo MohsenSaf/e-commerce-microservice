@@ -1,0 +1,413 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# E-Commerce Microservices — Docker Swarm Stack
+# Deploy:  docker stack deploy -c docker-stack.yml ecommerce
+# Remove:  docker stack rm ecommerce
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-service-defaults: &service-defaults
+  restart_policy:
+    condition: on-failure
+    delay: 5s
+    max_attempts: 3
+  update_config:
+    parallelism: 1
+    delay: 10s
+    order: start-first    # zero-downtime rolling update
+  rollback_config:
+    parallelism: 1
+    delay: 5s
+
+x-db-defaults: &db-defaults
+  restart_policy:
+    condition: on-failure
+    delay: 5s
+    max_attempts: 3
+
+services:
+
+  # ── Gateway ──────────────────────────────────────────────────────────────────
+  gateway:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-gateway:${TAG:-latest}
+    build:
+      context: ./gateway
+    ports:
+      - target: 3000
+        published: 3000
+        mode: ingress
+    environment:
+      PORT: 3000
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.50", memory: 256M }
+        reservations: { cpus: "0.10", memory: 128M }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ── Auth ─────────────────────────────────────────────────────────────────────
+  microservice-auth:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-auth:${TAG:-latest}
+    build:
+      context: ./microservice-auth
+    environment:
+      DATABASE_URL: postgresql://auth:auth@auth-db:5432/auth_db
+      JWT_ACCESS_SECRET:  ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+    networks:
+      - ecommerce-net
+    depends_on:
+      - auth-db
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.50", memory: 256M }
+        reservations: { cpus: "0.10", memory: 128M }
+
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     auth
+      POSTGRES_PASSWORD: auth
+      POSTGRES_DB:       auth_db
+    volumes:
+      - auth-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *db-defaults
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:   { cpus: "0.50", memory: 512M }
+        reservations: { cpus: "0.10", memory: 256M }
+
+  # ── Product ──────────────────────────────────────────────────────────────────
+  microservice-product:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-product:${TAG:-latest}
+    build:
+      context: ./microservice-product
+    environment:
+      DATABASE_URL:      postgresql://product:product@product-db:5432/product_db
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+    networks:
+      - ecommerce-net
+    depends_on:
+      - product-db
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.50", memory: 256M }
+        reservations: { cpus: "0.10", memory: 128M }
+
+  product-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     product
+      POSTGRES_PASSWORD: product
+      POSTGRES_DB:       product_db
+    volumes:
+      - product-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *db-defaults
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:   { cpus: "0.50", memory: 512M }
+        reservations: { cpus: "0.10", memory: 256M }
+
+  # ── Cart ─────────────────────────────────────────────────────────────────────
+  microservice-cart:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-cart:${TAG:-latest}
+    build:
+      context: ./microservice-cart
+    environment:
+      DATABASE_URL:      postgresql://cart:cart@cart-db:5432/cart_db
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+    networks:
+      - ecommerce-net
+    depends_on:
+      - cart-db
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.50", memory: 256M }
+        reservations: { cpus: "0.10", memory: 128M }
+
+  cart-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     cart
+      POSTGRES_PASSWORD: cart
+      POSTGRES_DB:       cart_db
+    volumes:
+      - cart-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *db-defaults
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:   { cpus: "0.50", memory: 512M }
+        reservations: { cpus: "0.10", memory: 256M }
+
+  # ── Inventory ────────────────────────────────────────────────────────────────
+  microservice-inventory:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-inventory:${TAG:-latest}
+    build:
+      context: ./microservice-inventory
+    environment:
+      DATABASE_URL:      postgresql://inventory:inventory@inventory-db:5432/inventory_db
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+    networks:
+      - ecommerce-net
+    depends_on:
+      - inventory-db
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.50", memory: 256M }
+        reservations: { cpus: "0.10", memory: 128M }
+
+  inventory-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     inventory
+      POSTGRES_PASSWORD: inventory
+      POSTGRES_DB:       inventory_db
+    volumes:
+      - inventory-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *db-defaults
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:   { cpus: "0.50", memory: 512M }
+        reservations: { cpus: "0.10", memory: 256M }
+
+  # ── Order ────────────────────────────────────────────────────────────────────
+  microservice-order:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-order:${TAG:-latest}
+    build:
+      context: ./microservice-order
+    environment:
+      DATABASE_URL:      postgresql://order:order@order-db:5432/order_db
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+    networks:
+      - ecommerce-net
+    depends_on:
+      - order-db
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.75", memory: 384M }
+        reservations: { cpus: "0.15", memory: 192M }
+
+  order-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     order
+      POSTGRES_PASSWORD: order
+      POSTGRES_DB:       order_db
+    volumes:
+      - order-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *db-defaults
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:   { cpus: "0.50", memory: 512M }
+        reservations: { cpus: "0.10", memory: 256M }
+
+  # ── Payment ──────────────────────────────────────────────────────────────────
+  microservice-payment:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-payment:${TAG:-latest}
+    build:
+      context: ./microservice-payment
+    environment:
+      DATABASE_URL:      postgresql://payment:payment@payment-db:5432/payment_db
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+    networks:
+      - ecommerce-net
+    depends_on:
+      - payment-db
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.75", memory: 384M }
+        reservations: { cpus: "0.15", memory: 192M }
+
+  payment-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     payment
+      POSTGRES_PASSWORD: payment
+      POSTGRES_DB:       payment_db
+    volumes:
+      - payment-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *db-defaults
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:   { cpus: "0.50", memory: 512M }
+        reservations: { cpus: "0.10", memory: 256M }
+
+  # ── Shipping ─────────────────────────────────────────────────────────────────
+  microservice-shipping:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-shipping:${TAG:-latest}
+    build:
+      context: ./microservice-shipping
+    environment:
+      DATABASE_URL:      postgresql://shipping:shipping@shipping-db:5432/shipping_db
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+    networks:
+      - ecommerce-net
+    depends_on:
+      - shipping-db
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.50", memory: 256M }
+        reservations: { cpus: "0.10", memory: 128M }
+
+  shipping-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     shipping
+      POSTGRES_PASSWORD: shipping
+      POSTGRES_DB:       shipping_db
+    volumes:
+      - shipping-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *db-defaults
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:   { cpus: "0.50", memory: 512M }
+        reservations: { cpus: "0.10", memory: 256M }
+
+  # ── Notification ─────────────────────────────────────────────────────────────
+  microservice-notification:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-notification:${TAG:-latest}
+    build:
+      context: ./microservice-notification
+    environment:
+      DATABASE_URL:      postgresql://notification:notification@notification-db:5432/notification_db
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+    networks:
+      - ecommerce-net
+    depends_on:
+      - notification-db
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.50", memory: 256M }
+        reservations: { cpus: "0.10", memory: 128M }
+
+  notification-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     notification
+      POSTGRES_PASSWORD: notification
+      POSTGRES_DB:       notification_db
+    volumes:
+      - notification-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *db-defaults
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:   { cpus: "0.50", memory: 512M }
+        reservations: { cpus: "0.10", memory: 256M }
+
+  # ── Reviews ──────────────────────────────────────────────────────────────────
+  microservice-reviews:
+    image: ${REGISTRY:-mohsensaf}/ecommerce-reviews:${TAG:-latest}
+    build:
+      context: ./microservice-reviews
+    environment:
+      DATABASE_URL:      postgresql://reviews:reviews@reviews-db:5432/reviews_db
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+    networks:
+      - ecommerce-net
+    depends_on:
+      - reviews-db
+    deploy:
+      <<: *service-defaults
+      replicas: 2
+      resources:
+        limits:   { cpus: "0.50", memory: 256M }
+        reservations: { cpus: "0.10", memory: 128M }
+
+  reviews-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     reviews
+      POSTGRES_PASSWORD: reviews
+      POSTGRES_DB:       reviews_db
+    volumes:
+      - reviews-data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    deploy:
+      <<: *db-defaults
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:   { cpus: "0.50", memory: 512M }
+        reservations: { cpus: "0.10", memory: 256M }
+
+networks:
+  ecommerce-net:
+    driver: overlay
+    attachable: true
+
+volumes:
+  auth-data:
+  product-data:
+  cart-data:
+  inventory-data:
+  order-data:
+  payment-data:
+  shipping-data:
+  notification-data:
+  reviews-data:

@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reviews
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reviews
+spec:
+  replicas: {{ .Values.reviews.replicas }}
+  selector:
+    matchLabels:
+      app: reviews
+  template:
+    metadata:
+      labels:
+        app: reviews
+        {{- include "ecommerce.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: reviews
+          image: {{ .Values.global.registry }}/ecommerce-reviews:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 4009
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: REVIEWS_DATABASE_URL
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: JWT_ACCESS_SECRET
+          resources:
+            requests:
+              cpu:    {{ .Values.reviews.resources.requests.cpu }}
+              memory: {{ .Values.reviews.resources.requests.memory }}
+            limits:
+              cpu:    {{ .Values.reviews.resources.limits.cpu }}
+              memory: {{ .Values.reviews.resources.limits.memory }}
+          livenessProbe:
+            tcpSocket:
+              port: 4009
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: 4009
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microservice-reviews
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: reviews
+  ports:
+    - port: 4009
+      targetPort: 4009
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.reviews.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reviews-db
+spec:
+  serviceName: {{ .Values.reviews.db.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.reviews.db.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.reviews.db.name }}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.reviews.db.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.reviews.db.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.reviews.db.database | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.reviews.db.user | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.reviews.db.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.reviews.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.reviews.db.name }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None   # headless — StatefulSet DNS resolution

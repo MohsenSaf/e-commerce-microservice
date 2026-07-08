@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cart
+spec:
+  replicas: {{ .Values.cart.replicas }}
+  selector:
+    matchLabels:
+      app: cart
+  template:
+    metadata:
+      labels:
+        app: cart
+        {{- include "ecommerce.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: cart
+          image: {{ .Values.global.registry }}/ecommerce-cart:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 4003
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: CART_DATABASE_URL
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: JWT_ACCESS_SECRET
+          resources:
+            requests:
+              cpu:    {{ .Values.cart.resources.requests.cpu }}
+              memory: {{ .Values.cart.resources.requests.memory }}
+            limits:
+              cpu:    {{ .Values.cart.resources.limits.cpu }}
+              memory: {{ .Values.cart.resources.limits.memory }}
+          livenessProbe:
+            tcpSocket:
+              port: 4003
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: 4003
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microservice-cart
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: cart
+  ports:
+    - port: 4003
+      targetPort: 4003
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.cart.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cart-db
+spec:
+  serviceName: {{ .Values.cart.db.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.cart.db.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.cart.db.name }}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.cart.db.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.cart.db.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.cart.db.database | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.cart.db.user | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.cart.db.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.cart.db.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.cart.db.name }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None   # headless — StatefulSet DNS resolution
