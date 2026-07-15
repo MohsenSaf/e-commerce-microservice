@@ -3,12 +3,24 @@
 ## Prerequisites
 
 ```fish
-# Ubuntu — install Docker
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin
-sudo usermod -aG docker $USER   # re-login after this
+# Fedora — install Docker Engine (the official docker.io repo, not moby-engine,
+# for full buildx/compose feature parity)
+sudo dnf -y install dnf-plugins-core
+sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
+    
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER   # re-login (or `newgrp docker`) after this
 
-# kubectl
-sudo apt install -y kubectl
+# kubectl (Fedora has no first-party kubectl package — add the k8s repo)
+cat <<'EOF' | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/v1.31/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/v1.31/rpm/repodata/repomd.xml.key
+EOF
+sudo dnf install -y kubectl
 
 # Helm 3
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
@@ -19,21 +31,33 @@ sudo chmod 644 /etc/rancher/k3s/k3s.yaml
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 ```
 
+> **SELinux note:** Fedora ships with SELinux enforcing by default. If a container fails to read a bind-mounted volume with a `Permission denied` error, mount it with the `:z` (shared) or `:Z` (private) suffix, e.g. `-v ./data:/data:z`, instead of disabling SELinux.
+
+> **Fresh-install proxy check:** if you use a proxy tool (Clash, V2Ray, etc.), confirm Docker isn't silently injecting a stale proxy into every build before you start:
+> ```fish
+> cat ~/.docker/config.json 2>/dev/null   # look for a "proxies" block
+> systemctl show --property=Environment docker
+> ```
+> On a fresh Fedora install these should both come back empty — if either one points at `127.0.0.1:<port>`, builds will fail to reach the yarn registry from inside the container (`127.0.0.1` inside a container refers to the container itself, not your host). Only add proxy config here if your network actually requires yarn to go through one, and if so point it at `host.docker.internal` with `--add-host=host.docker.internal:host-gateway` rather than `127.0.0.1`.
+
 ---
 
 ## 1. Build & Push Docker Images
 
 ```fish
 # Set your Docker Hub username
-set REGISTRY mohsensaf   # change to yours
+set REGISTRY mohsen12321   # change to yours
 set TAG latest
 
 # Build all images
+# NOTE: this is a Yarn Workspaces monorepo — the build context must be the
+# repo ROOT (".") so the shared root yarn.lock is visible, with -f pointing
+# at each service's own Dockerfile. Building with context ./$svc instead will
+# fail with "yarn.lock: not found".
 for svc in gateway microservice-auth microservice-product microservice-cart \
            microservice-inventory microservice-order microservice-payment \
            microservice-shipping microservice-notification microservice-reviews
-    docker build -t $REGISTRY/ecommerce-(string replace 'microservice-' '' $svc):$TAG ./$svc
-    docker push $REGISTRY/ecommerce-(string replace 'microservice-' '' $svc):$TAG
+    sudo docker build -t $REGISTRY/ecommerce-(string replace 'microservice-' '' $svc):$TAG -f $svc/Dockerfile .
 end
 ```
 
@@ -54,7 +78,7 @@ echo "your-refresh-secret" | docker secret create jwt_refresh_secret -
 
 ### Deploy the stack
 ```fish
-set -x REGISTRY mohsensaf
+set -x REGISTRY mohsen12321
 set -x TAG latest
 set -x JWT_ACCESS_SECRET your-access-secret
 set -x JWT_REFRESH_SECRET your-refresh-secret
