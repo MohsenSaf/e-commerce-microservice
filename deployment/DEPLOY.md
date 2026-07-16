@@ -99,8 +99,8 @@ docker stack rm ecommerce               # tear everything down
 ```fish
 # Run once per service after first deploy
 for svc in auth product cart inventory order payment shipping notification reviews
-    set container (docker ps --filter "name=ecommerce_microservice-$svc" -q | head -1)
-    docker exec $container npx prisma migrate deploy
+    set container (sudo docker ps --filter "name=ecommerce_microservice-$svc" -q | head -1)
+    sudo docker exec $container npx prisma migrate deploy
 end
 ```
 

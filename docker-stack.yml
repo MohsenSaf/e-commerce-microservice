@@ -9,27 +9,29 @@ version: "3.9"
 x-service-defaults: &service-defaults
   restart_policy:
     condition: on-failure
-    delay: 5s
-    max_attempts: 3
+    delay: 10s
+    max_attempts: 6
+    window : 120s
   update_config:
     parallelism: 1
     delay: 10s
     order: start-first    # zero-downtime rolling update
   rollback_config:
     parallelism: 1
-    delay: 5s
+    delay: 10s
 
 x-db-defaults: &db-defaults
   restart_policy:
     condition: on-failure
-    delay: 5s
-    max_attempts: 3
+    delay: 10s
+    max_attempts: 6
+    window : 120s
 
 services:
 
   # ── Gateway ──────────────────────────────────────────────────────────────────
   gateway:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-gateway:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-gateway:${TAG:-latest}
     build:
       context: ./gateway
     ports:
@@ -44,7 +46,7 @@ services:
       <<: *service-defaults
       replicas: 2
       resources:
-        limits:   { cpus: "0.50", memory: 256M }
+        limits:   { cpus: "0.50", memory: 512M }
         reservations: { cpus: "0.10", memory: 128M }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
@@ -55,7 +57,7 @@ services:
 
   # ── Auth ─────────────────────────────────────────────────────────────────────
   microservice-auth:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-auth:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-auth:${TAG:-latest}
     build:
       context: ./microservice-auth
     environment:
@@ -94,7 +96,7 @@ services:
 
   # ── Product ──────────────────────────────────────────────────────────────────
   microservice-product:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-product:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-product:${TAG:-latest}
     build:
       context: ./microservice-product
     environment:
@@ -132,7 +134,7 @@ services:
 
   # ── Cart ─────────────────────────────────────────────────────────────────────
   microservice-cart:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-cart:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-cart:${TAG:-latest}
     build:
       context: ./microservice-cart
     environment:
@@ -170,7 +172,7 @@ services:
 
   # ── Inventory ────────────────────────────────────────────────────────────────
   microservice-inventory:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-inventory:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-inventory:${TAG:-latest}
     build:
       context: ./microservice-inventory
     environment:
@@ -208,7 +210,7 @@ services:
 
   # ── Order ────────────────────────────────────────────────────────────────────
   microservice-order:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-order:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-order:${TAG:-latest}
     build:
       context: ./microservice-order
     environment:
@@ -246,7 +248,7 @@ services:
 
   # ── Payment ──────────────────────────────────────────────────────────────────
   microservice-payment:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-payment:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-payment:${TAG:-latest}
     build:
       context: ./microservice-payment
     environment:
@@ -284,7 +286,7 @@ services:
 
   # ── Shipping ─────────────────────────────────────────────────────────────────
   microservice-shipping:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-shipping:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-shipping:${TAG:-latest}
     build:
       context: ./microservice-shipping
     environment:
@@ -322,7 +324,7 @@ services:
 
   # ── Notification ─────────────────────────────────────────────────────────────
   microservice-notification:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-notification:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-notification:${TAG:-latest}
     build:
       context: ./microservice-notification
     environment:
@@ -360,7 +362,7 @@ services:
 
   # ── Reviews ──────────────────────────────────────────────────────────────────
   microservice-reviews:
-    image: ${REGISTRY:-mohsensaf}/ecommerce-reviews:${TAG:-latest}
+    image: ${REGISTRY:-mohsen12321}/ecommerce-reviews:${TAG:-latest}
     build:
       context: ./microservice-reviews
     environment:
